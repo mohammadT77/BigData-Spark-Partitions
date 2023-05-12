@@ -1,5 +1,5 @@
 from os.path import isfile
-from random import randint, random
+from random import randint
 from collections import defaultdict
 from argparse import ArgumentParser
 from time import time
@@ -71,7 +71,7 @@ def count_triangles2(colors_tuple, edges, rand_a, rand_b, p, num_colors):
 
 
 def h_(c: int):
-    # Returning hash function after configuring a, b variables randomly for it
+    # Returning hash function after configuring a, b variables randomly
     p = 8191
     a = randint(1, p-1)
     b = randint(0, p-1)
@@ -101,7 +101,7 @@ def MR_ApproxTCwithNodeColors(edges: RDD, C: int) -> int:
         return [(c1, (v1, v2))] if c1==c2 else []
 
     t_final = (
-        edges .flatMap(group_by_color)
+        edges.flatMap(group_by_color)
             .groupByKey()  # E(i)
             .map(lambda group: (group[0], count_triangles(group[1])))  # t(i)
             .values().sum() * C**2  # t_final
@@ -120,7 +120,7 @@ def MR_ExactTC(edges: RDD, C: int) -> int:
         return [(tuple(sorted((hc_u, hc_v, i))), (u, v)) for i in range(C)]
     
     t_final = (
-        edges .flatMap(generate_pairs)
+        edges.flatMap(generate_pairs)
             .groupByKey()
             .map(lambda item: (item[0], count_triangles2(item[0],item[1], a, b, p, C)))
             .values()
@@ -158,7 +158,7 @@ def main():
     edges = edges.repartition(32)
     edges = edges.cache()
     
-    print("Dataset =", args.path.replace('\\','/').split('/')[-1])
+    print("Dataset =", args.path)
     print("Number of Edges =", edges.count())
     print("Number of Colors =", args.C)
     print("Number of Repetitions =", args.R)
@@ -197,3 +197,4 @@ if __name__ == '__main__':
         main()
     except Exception as e:
         print(f"{e.__class__.__name__} occurred:", e)
+
