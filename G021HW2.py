@@ -71,21 +71,24 @@ def count_triangles2(colors_tuple, edges, rand_a, rand_b, p, num_colors):
 
 
 def h_(c: int):
+    # Returning hash function after configuring a, b variables randomly for it
     p = 8191
     a = randint(1, p-1)
     b = randint(0, p-1)
 
     def hash_func(u: int) -> int:
         return ((a*u + b) % p) % c
-    
+
+    # set needed variables a,b,p to the function for future uses
     hash_func.a = a
     hash_func.b = b
     hash_func.p = p
+
     return hash_func
 
 
 
-def MR_ApproxTCwithNodeColors(rdd: RDD, C: int) -> int:
+def MR_ApproxTCwithNodeColors(edges: RDD, C: int) -> int:
     # set h_c as the proper coloring hash function with C num of colors
     h_c = h_(C)
 
@@ -98,30 +101,28 @@ def MR_ApproxTCwithNodeColors(rdd: RDD, C: int) -> int:
         return [(c1, (v1, v2))] if c1==c2 else []
 
     t_final = (
-        rdd .flatMap(group_by_color)
+        edges .flatMap(group_by_color)
             .groupByKey()  # E(i)
             .map(lambda group: (group[0], count_triangles(group[1])))  # t(i)
             .values().sum() * C**2  # t_final
     )
     return t_final
 
-def MR_ExactTC(rdd: RDD, C: int) -> int:
-    h_c = h_(C)
+
+def MR_ExactTC(edges: RDD, C: int) -> int:
+    h_c = h_(C)  # instantiate a hash function
     
-    p = h_c.p
-    a = h_c.a
-    b = h_c.b
+    p, a, b = h_c.p, h_c.a, h_c.b
     
-    def get_triplet(edge):
+    def generate_pairs(edge):
         u, v = edge
-        hc_u, hc_v = h_c(u), h_c(v)  # evaluate colors of the two vertices
-        return [(tuple(sorted((hc_u, hc_v, i))),(u, v)) for i in range(C)]
+        hc_u, hc_v = h_c(u), h_c(v)  # evaluate the colors
+        return [(tuple(sorted((hc_u, hc_v, i))), (u, v)) for i in range(C)]
     
-    # Target: 1612010
     t_final = (
-        rdd .flatMap(get_triplet)
+        edges .flatMap(generate_pairs)
             .groupByKey()
-            .map(lambda group: (group[0],count_triangles2(group[0],group[1], a, b, p, C)))
+            .map(lambda item: (item[0], count_triangles2(item[0],item[1], a, b, p, C)))
             .values()
             .sum()
     )
@@ -129,6 +130,7 @@ def MR_ExactTC(rdd: RDD, C: int) -> int:
 
 
 def main():
+    ### Note: all the assertions below are handled throw main() function call so they wont be a problem to HDFS
 
     # Configure argument parser
     parser = ArgumentParser(description="BDC - Group 021 - Assignment 2")
@@ -151,13 +153,13 @@ def main():
     sc = SparkContext(conf=conf)
 
     # Reading dataset to RDD
-    rdd = sc.textFile(args.path, minPartitions=args.C, use_unicode=False)
-    rdd = rdd.map(lambda s: tuple(map(int, s.split(b',')))) # Convert edges from string to tuple
-    rdd = rdd.repartition(args.C)
-    rdd = rdd.cache()
+    rawData = sc.textFile(args.path, minPartitions=args.C, use_unicode=False)
+    edges = rawData.map(lambda s: tuple(map(int, s.split(b',')))) # Convert edges from string to tuple
+    edges = edges.repartition(32)
+    edges = edges.cache()
     
     print("Dataset =", args.path.replace('\\','/').split('/')[-1])
-    print("Number of Edges =", rdd.count())
+    print("Number of Edges =", edges.count())
     print("Number of Colors =", args.C)
     print("Number of Repetitions =", args.R)
 
@@ -167,7 +169,7 @@ def main():
         total_times_list = []
         for _ in range(args.R):
             start_time = time()
-            t_final = MR_ApproxTCwithNodeColors(rdd, args.C)
+            t_final = MR_ApproxTCwithNodeColors(edges, args.C)
             end_time = time()
 
             total_times_list.append(end_time-start_time)
@@ -180,13 +182,18 @@ def main():
         total_times_list = []
         for _ in range(args.R):
             start_time = time()
-            t_final = MR_ExactTC(rdd, args.C)
+            t_final = MR_ExactTC(edges, args.C)
             end_time = time()
 
             total_times_list.append(end_time-start_time)
             t_final_list.append(t_final)
         print(f"- Number of triangles (median over {args.R} runs) = {t_final_list[-1]}")
         print(f"- Running time (average over {args.R} runs) = {mean(total_times_list)*1000:.0f} ms")
-    
+
+
 if __name__ == '__main__':
-    main()
+    # Handling thrown exceptions to avoid HDFS issues
+    try:
+        main()
+    except Exception as e:
+        print(f"{e.__class__.__name__} occurred:", e)
