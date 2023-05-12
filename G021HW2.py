@@ -7,7 +7,6 @@ from pyspark import SparkConf, SparkContext, RDD
 from statistics import median
 
 
-
 def count_triangles(edges) -> int:
     # Create a defaultdict to store the neighbors of each vertex
     neighbors = defaultdict(set)
@@ -43,29 +42,6 @@ def h_(c: int):
     return hash_func
 
 
-class Timer:
-    def __init__(self, name=""):
-        self.name = name
-        self.reset()
-
-    def __enter__(self):
-        self.__start_t = time()
-        self.__end_t = None
-        return self
-
-    def __exit__(self, *args):
-        self.__end_t = time()
-
-    def elapsed_time(self) -> float:
-        assert self.__start_t, "Timer has NOT started yet."
-        return (self.__end_t or time()) - self.__start_t
-    
-    def reset(self):
-        self.__start_t = self.__end_t = None
-
-    def __str__(self) -> str:
-        return (self.name+" = " if self.name else '')+f"{int(self.elapsed_time()*1000)} ms"
-
 
 def MR_ApproxTCwithNodeColors(rdd: RDD, C: int) -> int:
     # set h_c as the proper coloring hash function with C num of colors
@@ -88,12 +64,6 @@ def MR_ApproxTCwithNodeColors(rdd: RDD, C: int) -> int:
     return t_final
 
 
-def MR_ApproxTCwithSparkPartitions(rdd:RDD, C:int) -> int:
-    t_final = ( 
-        rdd .mapPartitions(lambda edges: (yield count_triangles(edges)))  # t(i)
-            .sum() * C**2  # t_final
-    )
-    return t_final
 
 
 def main():
@@ -111,10 +81,8 @@ def main():
     # Validate arguments
     assert args.C >= 1, "Invalid argument C"
     assert args.R >= 1, "Invalid argument R"
+    assert args.F in (0,1), "Invalid argument F"
     assert isfile(args.path), "Invalid data file path (argument FILE_PATH)"
-
-    # Timer instance for future uses
-    timer = Timer()
 
     # Spark configuration
     conf = SparkConf().setAppName("BDC:G021HW2")
@@ -135,20 +103,14 @@ def main():
     t_final_list = []
     total_times_list = []
     for _ in range(args.R):
-        with timer:
-            t_final = MR_ApproxTCwithNodeColors(rdd, args.C)
-            total_times_list.append(timer.elapsed_time())
-            t_final_list.append(t_final)
+        start_time = time()
+        t_final = MR_ApproxTCwithNodeColors(rdd, args.C)
+        end_time = time()
+
+        total_times_list.append(end_time-start_time)
+        t_final_list.append(t_final)
     print(f"- Number of triangles (median over {args.R} runs) = {median(t_final_list)}")
     print(f"- Running time (average over {args.R} runs) = {median(total_times_list)*1000:.0f} ms")
     
-    print("Approximation through Spark partitions")
-    with timer:
-        t_final = MR_ApproxTCwithSparkPartitions(rdd, args.C)
-        total_time = timer.elapsed_time()
-        print(f"- Number of triangles = {t_final}")
-        print(f"- Running time = {total_time*1000:.0f} ms")
-
-
 if __name__ == '__main__':
     main()
