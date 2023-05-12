@@ -4,7 +4,7 @@ from collections import defaultdict
 from argparse import ArgumentParser
 from time import time
 from pyspark import SparkConf, SparkContext, RDD
-from statistics import median
+from statistics import median, mean
 
 
 def count_triangles(edges) -> int:
@@ -31,6 +31,45 @@ def count_triangles(edges) -> int:
     return triangle_count
 
 
+
+
+def count_triangles2(colors_tuple, edges, rand_a, rand_b, p, num_colors):
+    #We assume colors_tuple to be already sorted by increasing colors. Just transform in a list for simplicity
+    colors = list(colors_tuple)  
+    #Create a dictionary for adjacency list
+    neighbors = defaultdict(set)
+    #Creare a dictionary for storing node colors
+    node_colors = dict()
+    for edge in edges:
+
+        u, v = edge
+        node_colors[u]= ((rand_a*u+rand_b)%p)%num_colors
+        node_colors[v]= ((rand_a*v+rand_b)%p)%num_colors
+        neighbors[u].add(v)
+        neighbors[v].add(u)
+
+    # Initialize the triangle count to zero
+    triangle_count = 0
+
+    # Iterate over each vertex in the graph
+    for v in neighbors:
+        # Iterate over each pair of neighbors of v
+        for u in neighbors[v]:
+            if u > v:
+                for w in neighbors[u]:
+                    # If w is also a neighbor of v, then we have a triangle
+                    if w > u and w in neighbors[v]:
+                        # Sort colors by increasing values
+                        triangle_colors = sorted((node_colors[u], node_colors[v], node_colors[w]))
+                        # If triangle has the right colors, count it.
+                        if colors==triangle_colors:
+                            triangle_count += 1
+    # Return the total number of triangles in the graph
+    return triangle_count
+
+
+
+
 def h_(c: int):
     p = 8191
     a = randint(1, p-1)
@@ -39,6 +78,9 @@ def h_(c: int):
     def hash_func(u: int) -> int:
         return ((a*u + b) % p) % c
     
+    hash_func.a = a
+    hash_func.b = b
+    hash_func.p = p
     return hash_func
 
 
@@ -66,17 +108,24 @@ def MR_ApproxTCwithNodeColors(rdd: RDD, C: int) -> int:
 def MR_ExactTC(rdd: RDD, C: int) -> int:
     h_c = h_(C)
     
+    p = h_c.p
+    a = h_c.a
+    b = h_c.b
+    
     def get_triplet(edge):
         u, v = edge
         hc_u, hc_v = h_c(u), h_c(v)  # evaluate colors of the two vertices
-        return [((hc_u, hc_v, i), (u, v)) for i in range(C)]
+        return [(tuple(sorted((hc_u, hc_v, i))),(u, v)) for i in range(C)]
     
     # Target: 1612010
-    rdd = rdd.flatMap(get_triplet).groupByKey().map(lambda group: (group[0], count_triangles(group[1])))
-    print('keys',rdd.keys().collect())
-    print(rdd.collect())
-    print(rdd.values().collect())
-    return rdd.values().sum()
+    t_final = (
+        rdd .flatMap(get_triplet)
+            .groupByKey()
+            .map(lambda group: (group[0],count_triangles2(group[0],group[1], a, b, p, C)))
+            .values()
+            .sum()
+    )
+    return t_final
 
 
 def main():
@@ -104,7 +153,7 @@ def main():
     # Reading dataset to RDD
     rdd = sc.textFile(args.path, minPartitions=args.C, use_unicode=False)
     rdd = rdd.map(lambda s: tuple(map(int, s.split(b',')))) # Convert edges from string to tuple
-    rdd = rdd.partitionBy(args.C, lambda _:randint(0, args.C-1)) # Random partitioning instead of repartition()
+    rdd = rdd.repartition(args.C)
     rdd = rdd.cache()
     
     print("Dataset =", args.path.replace('\\','/').split('/')[-1])
@@ -113,7 +162,7 @@ def main():
     print("Number of Repetitions =", args.R)
 
     if args.F == 0:
-        print("Approximation through node coloring")
+        print("Approximation algorithm with node coloring")
         t_final_list = []
         total_times_list = []
         for _ in range(args.R):
@@ -124,9 +173,9 @@ def main():
             total_times_list.append(end_time-start_time)
             t_final_list.append(t_final)
         print(f"- Number of triangles (median over {args.R} runs) = {median(t_final_list)}")
-        print(f"- Running time (average over {args.R} runs) = {median(total_times_list)*1000:.0f} ms")
+        print(f"- Running time (average over {args.R} runs) = {mean(total_times_list)*1000:.0f} ms")
     else:
-        print("Approximation ExactTC")
+        print("Exact algorithm with node coloring")
         t_final_list = []
         total_times_list = []
         for _ in range(args.R):
@@ -136,8 +185,8 @@ def main():
 
             total_times_list.append(end_time-start_time)
             t_final_list.append(t_final)
-        print(f"- Number of triangles (median over {args.R} runs) = {median(t_final_list)}")
-        print(f"- Running time (average over {args.R} runs) = {median(total_times_list)*1000:.0f} ms")
+        print(f"- Number of triangles (median over {args.R} runs) = {t_final_list[-1]}")
+        print(f"- Running time (average over {args.R} runs) = {mean(total_times_list)*1000:.0f} ms")
     
 if __name__ == '__main__':
     main()
