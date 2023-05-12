@@ -38,10 +38,9 @@ def rawData_to_edges(rawData):
     u = int(vertexes[1])
     return [[u,v]]
 
-def countTriangles2(vals, rand_a, rand_b, p, num_colors):
+def countTriangles2(colors_tuple, edges, rand_a, rand_b, p, num_colors):
     #We assume colors_tuple to be already sorted by increasing colors. Just transform in a list for simplicity
 
-    colors_tuple, edges = vals
 
     colors = list(colors_tuple)
     #Create a dictionary for adjacency list
@@ -107,31 +106,22 @@ def MR_ExactTC(edges,c):
     def keytozero(pair):
         return [(0, pair[1])]
 
-    def hash_function1(edge):
+    def generatePairs(edge):
         v,u = edge
 
         hash_codeV1 = ((a * v + b) % p) % c
         hash_codeV2 = ((a * u + b) % p) % c
 
-        listOFKeyVal = []
-        for i in range(c):
-            listOFKeyVal.append((str(sorted((hash_codeV1,hash_codeV2,i))),(sorted((hash_codeV1,hash_codeV2,i)),edge)))
-        return listOFKeyVal
+        #listOFKeyVal = []
+        return [(tuple(sorted((hash_codeV1,hash_codeV2,i))),edge) for i in range(c)]
 
 
 
-    triangle_counting = (edges.flatMap(hash_function1) # <-- MAP PHASE (0,(2000,2001))
-                .groupByKey() # (0,[(2000,2001),(2009,2008),...]
-
-                #.mapValues(lambda keyListOfVals:countTriangles2(list(keyListOfVals[0]),list(keyListOfVals[1]),a,b,p,c))  # (0,2200) , (1,2100) , (2,2000),3(
-                .mapValues(lambda keyListOfVals: countTriangles2(list(keyListOfVals),a,b,p,c))  # (0,2200) , (1,2100) , (2,2000),3(
-                #.mapValues(lambda keyListOfVals: list(keyListOfVals))  # (0,2200) , (1,2100) , (2,2000),3(
-                #.mapValues(CountTriangles)  # (0,2200) , (1,2100) , (2,2000),3(
-                #.flatMap(keytozero)
-                #.groupByKey()
-                #.mapValues(lambda count: sum(count))
-                #.values()
-                #.sum()#*c*c
+    triangle_counting = (edges.flatMap(generatePairs)
+                .groupByKey()
+                .map(lambda keyListOfVals: (keyListOfVals[0],countTriangles2(keyListOfVals[0],keyListOfVals[1],a,b,p,c)))
+                .values()
+                .sum()
                 )
     return triangle_counting
 
@@ -194,7 +184,7 @@ def main():
     print("Number of Repetitions = " + str(R))
 
     print("Approximation through node coloring")
-    print("- Number of Triangle (median over " + str(R) + " runs) =", MR_ExactTC(edges,C).collect())
+    print("- Number of Triangle (median over " + str(R) + " runs) =", MR_ExactTC(edges,C))
     #print("- Running time (average over " + str(R) + " runs) = ", avg_running_time1)
 
 
