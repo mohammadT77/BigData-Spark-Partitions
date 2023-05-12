@@ -63,7 +63,20 @@ def MR_ApproxTCwithNodeColors(rdd: RDD, C: int) -> int:
     )
     return t_final
 
-
+def MR_ExactTC(rdd: RDD, C: int) -> int:
+    h_c = h_(C)
+    
+    def get_triplet(edge):
+        u, v = edge
+        hc_u, hc_v = h_c(u), h_c(v)  # evaluate colors of the two vertices
+        return [((hc_u, hc_v, i), (u, v)) for i in range(C)]
+    
+    # Target: 1612010
+    rdd = rdd.flatMap(get_triplet).groupByKey().map(lambda group: (group[0], count_triangles(group[1])))
+    print('keys',rdd.keys().collect())
+    print(rdd.collect())
+    print(rdd.values().collect())
+    return rdd.values().sum()
 
 
 def main():
@@ -98,19 +111,33 @@ def main():
     print("Number of Edges =", rdd.count())
     print("Number of Colors =", args.C)
     print("Number of Repetitions =", args.R)
-    
-    print("Approximation through node coloring")
-    t_final_list = []
-    total_times_list = []
-    for _ in range(args.R):
-        start_time = time()
-        t_final = MR_ApproxTCwithNodeColors(rdd, args.C)
-        end_time = time()
 
-        total_times_list.append(end_time-start_time)
-        t_final_list.append(t_final)
-    print(f"- Number of triangles (median over {args.R} runs) = {median(t_final_list)}")
-    print(f"- Running time (average over {args.R} runs) = {median(total_times_list)*1000:.0f} ms")
+    if args.F == 0:
+        print("Approximation through node coloring")
+        t_final_list = []
+        total_times_list = []
+        for _ in range(args.R):
+            start_time = time()
+            t_final = MR_ApproxTCwithNodeColors(rdd, args.C)
+            end_time = time()
+
+            total_times_list.append(end_time-start_time)
+            t_final_list.append(t_final)
+        print(f"- Number of triangles (median over {args.R} runs) = {median(t_final_list)}")
+        print(f"- Running time (average over {args.R} runs) = {median(total_times_list)*1000:.0f} ms")
+    else:
+        print("Approximation ExactTC")
+        t_final_list = []
+        total_times_list = []
+        for _ in range(args.R):
+            start_time = time()
+            t_final = MR_ExactTC(rdd, args.C)
+            end_time = time()
+
+            total_times_list.append(end_time-start_time)
+            t_final_list.append(t_final)
+        print(f"- Number of triangles (median over {args.R} runs) = {median(t_final_list)}")
+        print(f"- Running time (average over {args.R} runs) = {median(total_times_list)*1000:.0f} ms")
     
 if __name__ == '__main__':
     main()
