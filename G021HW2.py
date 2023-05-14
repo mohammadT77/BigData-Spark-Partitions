@@ -151,7 +151,7 @@ def main():
     # Spark configuration
     conf = SparkConf().setAppName("BDC:G021HW2")
     sc = SparkContext(conf=conf)
-    sc.setLogLevel('ERROR')
+    sc.setLogLevel('WARN')
 
     # Reading dataset to RDD
     rawData = sc.textFile(args.path, minPartitions=args.C, use_unicode=False)
