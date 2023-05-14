@@ -174,8 +174,8 @@ def main():
 
             total_times_list.append(end_time-start_time)
             t_final_list.append(t_final)
-        print(f"- Number of triangles (median over {args.R} runs) = {median(t_final_list)}")
-        print(f"- Running time (average over {args.R} runs) = {mean(total_times_list)*1000:.0f} ms")
+        print("- Number of triangles (median over {} runs) = {}".format(args.R, median(t_final_list)) )
+        print("- Running time (average over {} runs) = {} ms".format(args.R, int(mean(total_times_list)*1000)) )
     else:
         print("Exact algorithm with node coloring")
         t_final_list = []
@@ -187,8 +187,8 @@ def main():
 
             total_times_list.append(end_time-start_time)
             t_final_list.append(t_final)
-        print(f"- Number of triangles (median over {args.R} runs) = {t_final_list[-1]}")
-        print(f"- Running time (average over {args.R} runs) = {mean(total_times_list)*1000:.0f} ms")
+        print("- Number of triangles (median over {} runs) = {}".format(args.R, t_final_list[-1]))
+        print("- Running time (average over {} runs) = {} ms".format(args.R, int(mean(total_times_list)*1000)))
 
 
 if __name__ == '__main__':
@@ -196,5 +196,5 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as e:
-        print(f"{e.__class__.__name__} occurred:", e)
+        print(e.__class__.__name__, "occurred:", e)
 
