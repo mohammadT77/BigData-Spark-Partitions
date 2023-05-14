@@ -130,8 +130,6 @@ def MR_ExactTC(edges: RDD, C: int) -> int:
 
 
 def main():
-    ### Note: all the assertions below are handled throw main() function call so they wont be a problem to HDFS
-
     # Configure argument parser
     parser = ArgumentParser(description="BDC - Group 021 - Assignment 2")
 
@@ -193,7 +191,7 @@ def main():
 
 
 if __name__ == '__main__':
-    # Handling thrown exceptions to avoid HDFS issues
+    # Handling thrown exceptions from main()
     try:
         main()
     except Exception as e:
