@@ -146,7 +146,7 @@ def main():
     assert args.C >= 1, "Invalid argument C"
     assert args.R >= 1, "Invalid argument R"
     assert args.F in (0,1), "Invalid argument F"
-    assert isfile(args.path), "Invalid data file path (argument FILE_PATH)"
+    # assert isfile(args.path), "Invalid data file path (argument FILE_PATH)"
 
     # Spark configuration
     conf = SparkConf().setAppName("BDC:G021HW2")
