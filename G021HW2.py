@@ -1,10 +1,10 @@
-from os.path import isfile
+# from os.path import isfile
 from random import randint
 from collections import defaultdict
 from argparse import ArgumentParser
 from time import time
-from pyspark import SparkConf, SparkContext, RDD
 from statistics import median, mean
+from pyspark import SparkConf, SparkContext, RDD
 
 
 def count_triangles(edges) -> int:
@@ -31,11 +31,9 @@ def count_triangles(edges) -> int:
     return triangle_count
 
 
-
-
 def count_triangles2(colors_tuple, edges, rand_a, rand_b, p, num_colors):
     #We assume colors_tuple to be already sorted by increasing colors. Just transform in a list for simplicity
-    colors = list(colors_tuple)  
+    colors = list(colors_tuple)
     #Create a dictionary for adjacency list
     neighbors = defaultdict(set)
     #Creare a dictionary for storing node colors
@@ -69,7 +67,6 @@ def count_triangles2(colors_tuple, edges, rand_a, rand_b, p, num_colors):
 
 
 
-
 def h_(c: int):
     # Returning hash function after configuring a, b variables randomly
     p = 8191
@@ -93,9 +90,7 @@ def MR_ApproxTCwithNodeColors(edges: RDD, C: int) -> int:
     h_c = h_(C)
 
     def group_by_color(edge):
-        """
-        Returns the color of edge pairs if being in the same color, otherwise -1
-        """
+        # Returns the color of edge pairs if being in the same color, otherwise -1
         v1, v2 = edge
         c1, c2 = h_c(v1), h_c(v2)  # evaluate colors of the two vertices
         return [(c1, (v1, v2))] if c1==c2 else []
@@ -111,14 +106,14 @@ def MR_ApproxTCwithNodeColors(edges: RDD, C: int) -> int:
 
 def MR_ExactTC(edges: RDD, C: int) -> int:
     h_c = h_(C)  # instantiate a hash function
-    
+
     p, a, b = h_c.p, h_c.a, h_c.b
-    
+
     def generate_pairs(edge):
         u, v = edge
         hc_u, hc_v = h_c(u), h_c(v)  # evaluate the colors
         return [(tuple(sorted((hc_u, hc_v, i))), (u, v)) for i in range(C)]
-    
+
     t_final = (
         edges.flatMap(generate_pairs)
             .groupByKey()
@@ -147,16 +142,16 @@ def main():
     # assert isfile(args.path), "Invalid data file path (argument FILE_PATH)"
 
     # Spark configuration
-    conf = SparkConf().setAppName("BDC:G021HW2")
+    conf = SparkConf().setAppName("BDC:G021HW2").set('spark.locality.wait', '0s')
     sc = SparkContext(conf=conf)
-    sc.setLogLevel('WARN')
+    # sc.setLogLevel('WARN')
 
     # Reading dataset to RDD
     rawData = sc.textFile(args.path, minPartitions=args.C, use_unicode=False)
     edges = rawData.map(lambda s: tuple(map(int, s.split(b',')))) # Convert edges from string to tuple
     edges = edges.repartition(32)
     edges = edges.cache()
-    
+
     print("Dataset =", args.path)
     print("Number of Edges =", edges.count())
     print("Number of Colors =", args.C)
